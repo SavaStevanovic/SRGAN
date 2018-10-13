@@ -56,7 +56,7 @@ def main():
 
     socket.setdefaulttimeout(10)
 
-    with open('C:\Users\Sava\Documents\Master\ImageNet\Images', encoding="utf8", errors='ignore') as f:
+    with open(r"C:\Users\Sava\Documents\SRGAN\ImageNet\Images", encoding="utf8", errors='ignore') as f:
         lines = f.readlines()
         # lines = np.random.choice(lines, size=20000, replace=False)
         lines = [lines[i] for i in random.sample(range(0, len(lines)), 600000)]
