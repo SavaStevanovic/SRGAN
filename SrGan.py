@@ -1,6 +1,9 @@
 import tensorflow as tf
 import numpy as np
 import sklearn
+import os
+from ImageLoader import ImageLoader
+
 
 class SrGan(object):
     def __init__(self, epochs, learning_rate=0.0001, channels=3, resize=2, alpha=0.2, block_count=16):
@@ -97,7 +100,7 @@ class SrGan(object):
             residual_block = self.batch_normalize(residual_block)
 
             residual_block = tf.add(
-                residual_block, input_tensor, name='output')
+                residual_block, input_tensor, name='residual_output')
             print(residual_block)
 
             return residual_block
@@ -211,6 +214,8 @@ class SrGan(object):
                                  kernel_size=(9, 9), n_output_channels=3,
                                  padding_mode='SAME')
 
+        output = tf.identity(output, name='output_image')
+        print(output)
         # predictions = {
         #     'probabilities': tf.nn.softmax(h4, name='probabilities'),
         #     'labels': tf.cast(tf.argmax(h4, axis=1), tf.int32, name='labels')
@@ -230,21 +235,22 @@ class SrGan(object):
         # accuracy = tf.reduce_mean(
         #     tf.cast(correct_predictions, tf.float32), name='accuracy')
 
-    def train(self, training_set, validation_set=None, initialize=True):
+    def train(self, validation_set=None, initialize=True):
 
-        X_data = np.array(training_set[0])
-        y_data = np.array(training_set[1])
         training_loss = []
 
         if initialize:
             self.sess.run(self.init_op)
-
+        image_loader = ImageLoader(batch_size=8)
         for epoch in range(1, self.epochs+1):
-            batch_gen = self.create_batch_generator(
-                X_data, y_data, shuffle=True)
+            print('Epoch '+str(epoch))
+            image_loader.shuffle_data()
+            batch_gen = image_loader.getImages()
 
             avg_loss = 0.0
             for i, (batch_x, batch_y) in enumerate(batch_gen):
+                if(i % 10 == 0):
+                    print('    batch ' + str(i))
                 feed = {'tf_x:0': batch_x, 'tf_y:0': batch_y}
 
                 loss, _ = self.sess.run(
@@ -263,12 +269,25 @@ class SrGan(object):
             else:
                 print()
 
-    def create_batch_generator(self, X, y, batch_size=128, shuffle=False, random_seed=None):
-        X_copy = np.array(X)
-        y_copy = np.array(y)
+    # def create_batch_generator(self, X, y, batch_size=128, shuffle=False, random_seed=None):
+    #     if shuffle:
+    #         X_copy, y_copy = sklearn.utils.shuffle(X, y)
 
-        if shuffle:
-            X_copy, y_copy = sklearn.utils.shuffle(X_copy, y_copy)
+    #     for i in range(0, X.shape[0], batch_size):
+    #         yield (X_copy[i:i+batch_size, :], y_copy[i:i+batch_size])
 
-        for i in range(0, X.shape[0], batch_size):
-            yield (X_copy[i:i+batch_size, :], y_copy[i:i+batch_size])
+    def save(self, epoch, path='./mse-model/'):
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        print('Saving model in %s' % path)
+        self.saver.save(self.sess, os.path.join(path, 'model.ckpt'),
+                        global_step=epoch)
+
+    def load(self, path, epoch):
+        print('Loading model from %s' % path)
+        self.saver.restore(self.sess, os.path.join(
+            path, 'model.ckpt-%d' % epoch))
+
+    def predict(self,  X_test):
+        feed = {'tf_x:0': X_test}
+        return self.sess.run('output_image:0', feed_dict=feed)

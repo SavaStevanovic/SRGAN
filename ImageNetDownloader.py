@@ -43,27 +43,15 @@ def download_image(download_str, save_dir):
 
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--img_url_file", type=str, required=True,
-    #                    help="File that contains list of image IDs and urls.")
-    # parser.add_argument("--output_dir", type=str, required=True,
-    #                    help="Directory where to save outputs.")
-    # parser.add_argument("--n_download_urls", type=int, default=20000,
-    #                    help="Directory where to save outputs.")
-    # args = parser.parse_args()
-
-    # np.random.seed(123456)
 
     socket.setdefaulttimeout(10)
-
+    
     with open(r"C:\Users\Sava\Documents\SRGAN\ImageNet\Images", encoding="utf8", errors='ignore') as f:
         lines = f.readlines()
         # lines = np.random.choice(lines, size=20000, replace=False)
         lines = [lines[i] for i in random.sample(range(0, len(lines)), 600000)]
     Parallel(n_jobs=12)(delayed(download_image)(
         line, 'D:\\Downloads\\ImageNet\\Images') for line in lines)
-    # for line in lines:
-    #     download_image(line, 'D:\\Downloads\\ImageNet\\Images')
 
 
 if __name__ == "__main__":

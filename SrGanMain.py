@@ -1,4 +1,3 @@
-from ImageLoader import getImages
 from sklearn.feature_extraction import image
 from SrGan import SrGan
 import datetime
@@ -6,27 +5,41 @@ import random
 import tensorflow as tf
 import numpy as np
 import cv2
+from ImageLoader import ImageLoader
 
-# def get_image_samples(images, n_samples):
-#     return [images[i] for i in random.sample(range(0, len(images)), n_samples)]
+train = 0
+epoch = 1
 
-start_time = datetime.datetime.utcnow()
+if (train == 1):
+    srgan = SrGan(epochs=epoch)
 
-images = getImages(40)
-print(datetime.datetime.utcnow()-start_time)
+    srgan.train()
 
-images = [image.extract_patches_2d(image=img, patch_size=(
-    96, 96), max_patches=16, random_state=1) for img in images]
-print(datetime.datetime.utcnow()-start_time)
+    srgan.save(epoch=epoch)
+    del srgan
 
-target_images = [item/255 for sublist in images for item in sublist]
-print(datetime.datetime.utcnow()-start_time)
-input_images = [cv2.resize(
-    img, dsize=(24, 24), interpolation=cv2.INTER_CUBIC) for img in target_images]
+    
+if train==0:
+    srgan = SrGan(epochs=epoch)
+    srgan.load(epoch=epoch, path='./mse-model/')
 
-print(len(images))
 
-srgan=SrGan(epochs=20)
+    il = ImageLoader(
+        batch_size=10, image_dir=r"C:\Users\Sava\Documents\SRGAN\ImageNet\TestImages")
+    for i, (input_images, target_images) in enumerate(il.getImages(), 1):
+        preds = srgan.predict(input_images)
+        for i, img in enumerate(preds):
+            pictures = [
+                cv2.resize(input_images[i], dsize=(96, 96),
+                        interpolation=cv2.INTER_NEAREST),
+                cv2.resize(input_images[i], dsize=(96, 96),
+                        interpolation=cv2.INTER_CUBIC),
+                (img+1)/2, (target_images[i]+1)/2]
 
-srgan.train(training_set=(input_images,target_images))
+            pictures = (cv2.resize(img, dsize=(96*5, 96*5),
+                                interpolation=cv2.INTER_NEAREST) for img in pictures)
 
+            numpy_horizontal = np.hstack(pictures)
+            cv2.imshow('numpy_horizontal', numpy_horizontal)
+            cv2.waitKey(0)
+        cv2.destroyAllWindows()
