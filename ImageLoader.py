@@ -22,12 +22,13 @@ class ImageLoader:
             if extension.lower() not in self.valid_image_extensions:
                 continue
             self.image_path_list.append(os.path.join(self.imageDir, file))
+        self.batch_count=len(self.image_path_list)//self.batch_size-1
 
     def shuffle_data(self):
         random.shuffle(self.image_path_list)
 
     def getImages(self):
-        for i in range(len(self.image_path_list)//self.batch_size-1):
+        for i in range(self.batch_count):
             images = [cv2.imread(
                 imagePath) for imagePath in self.image_path_list[i*self.batch_size:(i+1)*self.batch_size]]
             yield self.preprocess_images(images)

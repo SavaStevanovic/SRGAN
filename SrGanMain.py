@@ -7,22 +7,24 @@ import numpy as np
 import cv2
 from ImageLoader import ImageLoader
 
-train = 0
+preload_epoch = 1
 epoch = 1
+train = True
+preload_model = True
 
-if (train == 1):
-    srgan = SrGan(epochs=epoch)
-
-    srgan.train()
-
-    srgan.save(epoch=epoch)
+if train:
+    if preload_model:
+        srgan = SrGan(epochs=epoch)
+        srgan.load(epoch=preload_epoch, path='./mse-model/')
+    else:
+        srgan = SrGan(epochs=epoch)
+    srgan.train(preload_epoch=preload_epoch,initialize=not preload_model)
     del srgan
 
-    
-if train==0:
-    srgan = SrGan(epochs=epoch)
-    srgan.load(epoch=epoch, path='./mse-model/')
 
+if not train:
+    srgan = SrGan(epochs=epoch)
+    srgan.load(epoch=preload_epoch, path='./mse-model/')
 
     il = ImageLoader(
         batch_size=10, image_dir=r"C:\Users\Sava\Documents\SRGAN\ImageNet\TestImages")
@@ -31,13 +33,13 @@ if train==0:
         for i, img in enumerate(preds):
             pictures = [
                 cv2.resize(input_images[i], dsize=(96, 96),
-                        interpolation=cv2.INTER_NEAREST),
+                           interpolation=cv2.INTER_NEAREST),
                 cv2.resize(input_images[i], dsize=(96, 96),
-                        interpolation=cv2.INTER_CUBIC),
+                           interpolation=cv2.INTER_CUBIC),
                 (img+1)/2, (target_images[i]+1)/2]
 
             pictures = (cv2.resize(img, dsize=(96*5, 96*5),
-                                interpolation=cv2.INTER_NEAREST) for img in pictures)
+                                   interpolation=cv2.INTER_NEAREST) for img in pictures)
 
             numpy_horizontal = np.hstack(pictures)
             cv2.imshow('numpy_horizontal', numpy_horizontal)
