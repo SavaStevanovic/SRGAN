@@ -8,8 +8,7 @@ from sklearn.feature_extraction import image
 
 
 class ImageLoader:
-    def __init__(self, batch_size, image_dir=r"C:\Users\Sava\Documents\SRGAN\ImageNet\TrainImages"):
-        random.seed(123)
+    def __init__(self, batch_size, image_dir="./ImageNet/TrainImages"):
         self.batch_size = batch_size
         # specify your path here
         self.imageDir = image_dir

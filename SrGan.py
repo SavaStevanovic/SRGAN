@@ -235,7 +235,7 @@ class SrGan(object):
         # accuracy = tf.reduce_mean(
         #     tf.cast(correct_predictions, tf.float32), name='accuracy')
 
-    def train(self, preload_epoch=0, validation_set=None, initialize=True):
+    def train(self, preload_epoch=0, validation_set_path=None, initialize=True):
 
         training_loss = []
 
@@ -260,14 +260,26 @@ class SrGan(object):
 
             training_loss.append(avg_loss/(i+1))
             print('Epoch %02d Training Avg. Loss: %7.3f' %
-                  (epoch, avg_loss), end=' ')
+                  (preload_epoch+epoch, avg_loss), end=' ')
             self.save(epoch=preload_epoch+epoch)
 
-            if validation_set is not None:
-                feed = {'tf_x:0': validation_set[0], 'tf_y:0': validation_set[1],
-                        'is_train:0': False}
-                validation_acc = self.sess.run('accuracy:0', feed_dict=feed)
-                print(' Validation Acc: %7.3f' % validation_acc)
+            if validation_set_path is not None:
+                val_image_loader = ImageLoader(
+                    batch_size=8, image_dir=validation_set_path)
+                val_batch_gen = val_image_loader.getImages()
+                val_avg_loss = 0.0
+                for i, (batch_x, batch_y) in enumerate(val_batch_gen):
+                    if(i % 200 == 0):
+                        print('    validation batch ' + str(i)+'/' +
+                              str(val_image_loader.batch_count))
+                    feed = {'tf_x:0': batch_x, 'tf_y:0': batch_y}
+
+                    val_loss = self.sess.run(
+                        'mse_loss:0', feed_dict=feed)
+                    val_avg_loss += val_loss
+
+                print('Epoch %02d Validation Avg. Loss: %7.3f' %
+                      (preload_epoch+epoch, val_avg_loss))
             else:
                 print()
 

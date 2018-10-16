@@ -6,10 +6,11 @@ import tensorflow as tf
 import numpy as np
 import cv2
 from ImageLoader import ImageLoader
+import os
 
-preload_epoch = 20
-epoch = 8
-train = False
+preload_epoch = 31
+epoch = 20
+train = True
 preload_model = True
 
 if train:
@@ -18,7 +19,8 @@ if train:
         srgan.load(epoch=preload_epoch, path='./mse-model/')
     else:
         srgan = SrGan(epochs=epoch)
-    srgan.train(preload_epoch=preload_epoch,initialize=not preload_model)
+    srgan.train(preload_epoch=preload_epoch, initialize=not preload_model,
+                validation_set_path="./ImageNet/TestImages")
     del srgan
 
 
@@ -27,7 +29,7 @@ if not train:
     srgan.load(epoch=preload_epoch, path='./mse-model/')
 
     il = ImageLoader(
-        batch_size=10, image_dir=r"C:\Users\Sava\Documents\SRGAN\ImageNet\TestImages")
+        batch_size=10, image_dir="./ImageNet/TestImages")
     for i, (input_images, target_images) in enumerate(il.getImages(), 1):
         preds = srgan.predict(input_images)
         for i, img in enumerate(preds):
