@@ -2,3 +2,15 @@
 __pycache__/
 .vscode/launch.json
 .vscode/settings.json
+mse-model/model.ckpt-13.index
+mse-model/model.ckpt-11.index
+mse-model/model.ckpt-14.data-00000-of-00001
+mse-model/model.ckpt-12.index
+mse-model/model.ckpt-13.meta
+mse-model/model.ckpt-11.meta
+mse-model/model.ckpt-14.index
+mse-model/model.ckpt-11.data-00000-of-00001
+mse-model/model.ckpt-12.meta
+mse-model/model.ckpt-14.meta
+mse-model/model.ckpt-12.data-00000-of-00001
+mse-model/model.ckpt-13.data-00000-of-00001

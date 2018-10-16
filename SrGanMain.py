@@ -7,9 +7,9 @@ import numpy as np
 import cv2
 from ImageLoader import ImageLoader
 
-preload_epoch = 1
-epoch = 1
-train = True
+preload_epoch = 2
+epoch = 15
+train = False
 preload_model = True
 
 if train:
