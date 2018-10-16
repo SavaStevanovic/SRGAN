@@ -7,8 +7,8 @@ import numpy as np
 import cv2
 from ImageLoader import ImageLoader
 
-preload_epoch = 2
-epoch = 15
+preload_epoch = 20
+epoch = 8
 train = False
 preload_model = True
 
