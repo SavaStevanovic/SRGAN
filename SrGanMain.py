@@ -8,7 +8,7 @@ import cv2
 from ImageLoader import ImageLoader
 import os
 
-preload_epoch = 49
+preload_epoch = 55
 epoch = 40
 train = False
 preload_model = True
@@ -38,7 +38,7 @@ if not train:
                            interpolation=cv2.INTER_NEAREST),
                 cv2.resize(input_images[i], dsize=(96, 96),
                            interpolation=cv2.INTER_CUBIC),
-                (img+1)/2, (target_images[i]+1)/2]
+                (img+1)/2, (target_images[i]+1)/2, (img+1)/2 - (target_images[i]+1)/2]
 
             pictures = (cv2.resize(img, dsize=(96*5, 96*5),
                                    interpolation=cv2.INTER_NEAREST) for img in pictures)

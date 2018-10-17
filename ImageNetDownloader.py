@@ -48,8 +48,8 @@ def main():
     
     with open(r"D:\Downloads\imagenet_fall11_urls\fall11_urls.txt", encoding="utf8", errors='ignore') as f:
         lines = f.readlines()
-        lines = [lines[i] for i in random.sample(range(0, len(lines)), 600000)]
-    Parallel(n_jobs=36)(delayed(download_image)(
+        lines = [lines[i] for i in random.sample(range(0, len(lines)), 10000000)]
+    Parallel(n_jobs=12)(delayed(download_image)(
         line, 'D:\\Downloads\\ImageNet\\Images') for line in lines)
 
 

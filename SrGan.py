@@ -6,7 +6,7 @@ from ImageLoader import ImageLoader
 
 
 class SrGan(object):
-    def __init__(self, epochs, learning_rate=0.0001, channels=3, resize=2, alpha=0.2, block_count=16):
+    def __init__(self, epochs, learning_rate=0.00001, channels=3, resize=2, alpha=0.2, block_count=16):
         self.learning_rate = learning_rate
         self.channels = channels
         self.resize = resize
@@ -259,8 +259,8 @@ class SrGan(object):
                 avg_loss += loss
 
             training_loss.append(avg_loss/(i+1))
-            print('Epoch %02d Training Avg. Loss: %7.3f' %
-                  (preload_epoch+epoch, avg_loss), end=' ')
+            print('Epoch %02d Training Avg. Loss: %7.10f' %
+                  (preload_epoch+epoch, avg_loss/(i+1)), end=' ')
             self.save(epoch=preload_epoch+epoch)
 
             if validation_set_path is not None:
@@ -278,8 +278,8 @@ class SrGan(object):
                         'mse_loss:0', feed_dict=feed)
                     val_avg_loss += val_loss
 
-                print('Epoch %02d Validation Avg. Loss: %7.3f' %
-                      (preload_epoch+epoch, val_avg_loss))
+                print('Epoch %02d Validation Avg. Loss: %7.10f' %
+                      (preload_epoch+epoch, val_avg_loss/(i+1)))
             else:
                 print()
 
