@@ -8,9 +8,9 @@ import cv2
 from ImageLoader import ImageLoader
 import os
 
-preload_epoch = 31
-epoch = 20
-train = True
+preload_epoch = 49
+epoch = 40
+train = False
 preload_model = True
 
 if train:
