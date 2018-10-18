@@ -176,67 +176,52 @@ class SrGan(object):
             dtype=tf.float32, shape=[None, None, None, self.channels], name='tf_x')
         tf_y_image = tf.placeholder(
             dtype=tf.float32, shape=[None, None, None, self.channels], name='tf_y')
+        tf_training = tf.placeholder(
+            dtype=tf.bool, shape=None, name='tf_training')
 
         print('\nBuilding first layer:')
-        h1 = self.conv_layer(input_tensor=tf_x_image, name='conv_1',
-                             kernel_size=(9, 9), n_output_channels=64,
-                             padding_mode='SAME')
-
-        h1_activation = tf.identity(
-            self.prelu(h1, self.alpha), name='h1_activation')
-        print(h1_activation)
+        net = tf.layers.conv2d(inputs=tf_x_image, filters=64, kernel_size=(
+            9, 9), activation=tf.nn.leaky_relu, padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+        net_pre = net
+        post_res = net_pre
 
         print('\nBuilding block layers:')
-        blocks = [self.residual_block(input_tensor=h1_activation, name='block_0',
-                                      kernel_size=(3, 3), n_output_channels=64, strides=(1, 1, 1, 1))]
-        for i in range(self.block_count-1):
-            blocks.append(self.residual_block(input_tensor=blocks[-1], name='block_'+str(
-                i+1), kernel_size=(3, 3), n_output_channels=64, strides=(1, 1, 1, 1)))
+        for i in range(self.block_count):
+            net = tf.layers.conv2d(
+                inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+            net = tf.layers.conv2d(
+                inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net += net_pre
+            net_pre = net
 
         print('\nBuilding pre upscale layer:')
-        conv_pre_upscale_1 = self.conv_layer(blocks[-1], kernel_size=(3, 3), name='conv_pre_upscale_1', n_output_channels=64,
-                                             padding_mode='SAME')
-
-        conv_pre_upscale_1 = self.batch_normalize(conv_pre_upscale_1)
-
-        conv_pre_upscale_normalized_1 = tf.add(
-            conv_pre_upscale_1, h1_activation, name='conv_pre_upscale_normalized_1')
-        print(conv_pre_upscale_normalized_1)
+        net = tf.layers.conv2d(inputs=net, filters=64,
+                               kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+        net = tf.layers.batch_normalization(net, training=tf_training)
+        net += post_res
 
         print('\nBuilding upscale layers:')
-        upscale_layers = [self.upscale_layer(input_tensor=conv_pre_upscale_normalized_1, name='upscale_layer_0',
-                                             kernel_size=(3, 3), n_output_channels=256, strides=(1, 1, 1, 1))]
-        for i in range(self.resize-1):
-            upscale_layers.append(self.upscale_layer(input_tensor=upscale_layers[-1], name='upscale_layer_'+str(
-                i+1), kernel_size=(3, 3), n_output_channels=256, strides=(1, 1, 1, 1)))
+        for i in range(self.resize):
+            net = tf.layers.conv2d(inputs=net, filters=256, kernel_size=(
+                3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.depth_to_space(net, block_size=2)
+            net = tf.nn.leaky_relu(net)
 
-        output = self.conv_layer(input_tensor=upscale_layers[-1], name='output',
-                                 kernel_size=(9, 9), n_output_channels=3,
-                                 padding_mode='SAME')
-
+        output = tf.layers.conv2d(
+            inputs=net, filters=3, kernel_size=(9, 9), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer(),activation=tf.nn.tanh)
         output = tf.identity(output, name='output_image')
-        print(output)
-        # predictions = {
-        #     'probabilities': tf.nn.softmax(h4, name='probabilities'),
-        #     'labels': tf.cast(tf.argmax(h4, axis=1), tf.int32, name='labels')
-        # }
 
         mse_loss = tf.losses.mean_squared_error(tf_y_image, output)
         mse_loss = tf.identity(mse_loss, name='mse_loss')
-        # cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-        #     logits=h4, labels=tf_y_onehot), name='cross_entropy_loss')
 
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         optimizer = optimizer.minimize(mse_loss, name='train_op')
 
-        # correct_predictions = tf.equal(
-        #     predictions['labels'], tf_y, name='correct_predictions')
-
-        # accuracy = tf.reduce_mean(
-        #     tf.cast(correct_predictions, tf.float32), name='accuracy')
-
     def train(self, preload_epoch=0, validation_set_path=None, initialize=True):
-
+        writer = tf.summary.FileWriter(logdir='./logs/', graph=self.sess.graph)
         training_loss = []
 
         if initialize:
@@ -249,10 +234,11 @@ class SrGan(object):
 
             avg_loss = 0.0
             for i, (batch_x, batch_y) in enumerate(batch_gen):
-                if(i % 500 == 0):
+                if(i % 1000 == 0):
                     print('    batch ' + str(i)+'/' +
                           str(image_loader.batch_count))
-                feed = {'tf_x:0': batch_x, 'tf_y:0': batch_y}
+                feed = {'tf_x:0': batch_x,
+                        'tf_y:0': batch_y, 'tf_training:0': True}
 
                 loss, _ = self.sess.run(
                     ['mse_loss:0', 'train_op'], feed_dict=feed)
@@ -272,7 +258,8 @@ class SrGan(object):
                     if(i % 200 == 0):
                         print('    validation batch ' + str(i)+'/' +
                               str(val_image_loader.batch_count))
-                    feed = {'tf_x:0': batch_x, 'tf_y:0': batch_y}
+                    feed = {'tf_x:0': batch_x,
+                            'tf_y:0': batch_y, 'tf_training:0': False}
 
                     val_loss = self.sess.run(
                         'mse_loss:0', feed_dict=feed)
@@ -282,13 +269,7 @@ class SrGan(object):
                       (preload_epoch+epoch, val_avg_loss/(i+1)))
             else:
                 print()
-
-    # def create_batch_generator(self, X, y, batch_size=128, shuffle=False, random_seed=None):
-    #     if shuffle:
-    #         X_copy, y_copy = sklearn.utils.shuffle(X, y)
-
-    #     for i in range(0, X.shape[0], batch_size):
-    #         yield (X_copy[i:i+batch_size, :], y_copy[i:i+batch_size])
+        writer.close()
 
     def save(self, epoch, path='./mse-model/'):
         if not os.path.isdir(path):
@@ -303,5 +284,5 @@ class SrGan(object):
             path, 'model.ckpt-%d' % epoch))
 
     def predict(self,  X_test):
-        feed = {'tf_x:0': X_test}
+        feed = {'tf_x:0': X_test, 'tf_training:0': True}
         return self.sess.run('output_image:0', feed_dict=feed)

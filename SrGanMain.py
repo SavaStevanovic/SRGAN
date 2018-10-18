@@ -7,11 +7,21 @@ import numpy as np
 import cv2
 from ImageLoader import ImageLoader
 import os
+import math
 
-preload_epoch = 55
+preload_epoch = 4
 epoch = 40
-train = False
+train = True
 preload_model = True
+
+
+def psnr(img1, img2):
+    mse = np.mean((img1 - img2) ** 2)
+    if mse == 0:
+        return 100
+    PIXEL_MAX = 1.0
+    return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
+
 
 if train:
     if preload_model:
@@ -38,12 +48,13 @@ if not train:
                            interpolation=cv2.INTER_NEAREST),
                 cv2.resize(input_images[i], dsize=(96, 96),
                            interpolation=cv2.INTER_CUBIC),
-                (img+1)/2, (target_images[i]+1)/2, (img+1)/2 - (target_images[i]+1)/2]
+                (img+1)/2, (target_images[i]+1)/2, 0.5+(img+1)/2 - (target_images[i]+1)/2]
 
             pictures = (cv2.resize(img, dsize=(96*5, 96*5),
                                    interpolation=cv2.INTER_NEAREST) for img in pictures)
 
             numpy_horizontal = np.hstack(pictures)
+            print(psnr((img+1)/2, (target_images[i]+1)/2))
             cv2.imshow('numpy_horizontal', numpy_horizontal)
             cv2.waitKey(0)
         cv2.destroyAllWindows()
