@@ -30,11 +30,13 @@ class ImageLoader:
         for i in range(self.batch_count):
             images = [cv2.imread(
                 imagePath) for imagePath in self.image_path_list[i*self.batch_size:(i+1)*self.batch_size]]
-            yield self.preprocess_images(images)
+            prepreocessed_images=self.preprocess_images(images)
+            if len(prepreocessed_images[0])>0 and len(prepreocessed_images[1])>0:
+                yield prepreocessed_images
 
     def preprocess_images(self, images):
         patch_images = [image.extract_patches_2d(image=img, patch_size=(
-            96, 96), max_patches=16, random_state=1) for img in images if img is not None]
+            96, 96), max_patches=16) for img in images if img is not None]
 
         target_images = [item for sublist in patch_images for item in sublist]
         input_images = [cv2.resize(

@@ -9,9 +9,9 @@ from ImageLoader import ImageLoader
 import os
 import math
 
-preload_epoch = 4
-epoch = 40
-train = True
+preload_epoch = 11
+epoch = 1000
+train = False
 preload_model = True
 
 
@@ -26,7 +26,7 @@ def psnr(img1, img2):
 if train:
     if preload_model:
         srgan = SrGan(epochs=epoch)
-        srgan.load(epoch=preload_epoch, path='./mse-model/')
+        srgan.load(epoch=preload_epoch, path='./mse-vgg-model/')
     else:
         srgan = SrGan(epochs=epoch)
     srgan.train(preload_epoch=preload_epoch, initialize=not preload_model,
@@ -36,7 +36,7 @@ if train:
 
 if not train:
     srgan = SrGan(epochs=epoch)
-    srgan.load(epoch=preload_epoch, path='./mse-model/')
+    srgan.load(epoch=preload_epoch, path='./mse-vgg-model/')
 
     il = ImageLoader(
         batch_size=10, image_dir="./ImageNet/TestImages")
@@ -48,7 +48,7 @@ if not train:
                            interpolation=cv2.INTER_NEAREST),
                 cv2.resize(input_images[i], dsize=(96, 96),
                            interpolation=cv2.INTER_CUBIC),
-                (img+1)/2, (target_images[i]+1)/2, 0.5+(img+1)/2 - (target_images[i]+1)/2]
+                (img+1)/2, (target_images[i]+1)/2, ((img+1)/2 - (target_images[i]+1)/2)**2]
 
             pictures = (cv2.resize(img, dsize=(96*5, 96*5),
                                    interpolation=cv2.INTER_NEAREST) for img in pictures)
