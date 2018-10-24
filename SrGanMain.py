@@ -9,10 +9,10 @@ from ImageLoader import ImageLoader
 import os
 import math
 
-preload_epoch = 11
+preload_epoch = 0
 epoch = 1000
-train = False
-preload_model = True
+train = True
+preload_model = False
 
 
 def psnr(img1, img2):
@@ -26,17 +26,17 @@ def psnr(img1, img2):
 if train:
     if preload_model:
         srgan = SrGan(epochs=epoch)
-        srgan.load(epoch=preload_epoch, path='./mse-vgg-model/')
+        srgan.load(epoch=preload_epoch, path='./mse-vgg-gen-model/')
     else:
         srgan = SrGan(epochs=epoch)
     srgan.train(preload_epoch=preload_epoch, initialize=not preload_model,
-                validation_set_path="./ImageNet/TestImages")
+                validation_set_path="./ImageNet/TestImages", pretrain=True)
     del srgan
 
 
 if not train:
     srgan = SrGan(epochs=epoch)
-    srgan.load(epoch=preload_epoch, path='./mse-vgg-model/')
+    srgan.load(epoch=preload_epoch, path='./mse-vgg-gen-model/')
 
     il = ImageLoader(
         batch_size=10, image_dir="./ImageNet/TestImages")

@@ -10,7 +10,7 @@ import vgg19
 
 
 class SrGan(object):
-    def __init__(self, epochs, learning_rate=0.000001, channels=3, resize=2, alpha=0.2, block_count=16):
+    def __init__(self, epochs, learning_rate=0.00001, channels=3, resize=2, alpha=0.2, block_count=16):
         self.learning_rate = learning_rate
         self.channels = channels
         self.resize = resize
@@ -21,12 +21,59 @@ class SrGan(object):
         graph = tf.Graph()
         with graph.as_default():
             tf.set_random_seed(1)
-            vgg = self.build_generator()
+            self.build_generator()
             self.init_op = tf.global_variables_initializer()
 
             self.saver = tf.train.Saver()
 
         self.sess = tf.Session(graph=graph)
+
+    def build_discriminator(self, tf_image, tf_training, reuse):
+        with tf.variable_scope("discriminator", reuse=reuse) as dis:
+            print('Building descriminator')
+            net = tf.layers.conv2d(inputs=tf_image, filters=64, kernel_size=(
+                3, 3), activation=tf.nn.leaky_relu, padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+            net = tf.layers.conv2d(
+                inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+
+            net = tf.layers.conv2d(
+                inputs=net, filters=128, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+
+            net = tf.layers.conv2d(
+                inputs=net, filters=128, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+
+            net = tf.layers.conv2d(
+                inputs=net, filters=256, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+
+            net = tf.layers.conv2d(
+                inputs=net, filters=256, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+
+            net = tf.layers.conv2d(
+                inputs=net, filters=512, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+
+            net = tf.layers.conv2d(
+                inputs=net, filters=512, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+            net = tf.layers.batch_normalization(net, training=tf_training)
+            net = tf.nn.leaky_relu(net)
+
+            net = tf.reshape(net, shape=[-1, 512*6*6])
+            net = tf.layers.dense(inputs=net, units=1024,
+                                  activation=tf.nn.leaky_relu)
+            net = tf.layers.dense(inputs=net, units=1)
+            return net
 
     def build_generator(self):
         tf_x_image = tf.placeholder(
@@ -81,13 +128,31 @@ class SrGan(object):
         _, target_content = vgg19.Vgg19_simple_api(
             (tf_y_image244+1)/2, reuse=True)
 
+        discriminator_logits_gen = self.build_discriminator(
+            output, tf_training, reuse=False)
+        discriminator_logits_real = self.build_discriminator(
+            tf_y_image, tf_training, reuse=True)
+
+        discriminator_loss = tl.cost.sigmoid_cross_entropy(discriminator_logits_gen, tf.zeros_like(
+            discriminator_logits_gen)) + tl.cost.sigmoid_cross_entropy(discriminator_logits_real, tf.ones_like(discriminator_logits_real))
+        discriminator_loss_summ = tf.summary.scalar(
+            tensor=discriminator_loss, name='discriminator_loss_summ')
+
+        gen_loss = 0.001 * \
+            tl.cost.sigmoid_cross_entropy(
+                discriminator_logits_gen, tf.ones_like(discriminator_logits_gen))
+        gen_loss_summ = tf.summary.scalar(
+            tensor=gen_loss, name='gen_loss_summ')
+
         content_loss = 0.006*tl.cost.mean_squared_error(
             target_content.outputs, output_content.outputs, is_mean=True)
-        content_loss = tf.identity(content_loss, name='content_loss')
+        content_loss_summ = tf.summary.scalar(
+            tensor=content_loss, name='content_loss_summ')
 
         mse_loss = tl.cost.mean_squared_error(
             tf_y_image, output, is_mean=True)
-        mse_loss = tf.identity(mse_loss, name='mse_loss')
+        mse_loss_summ = tf.summary.scalar(
+            tensor=mse_loss, name='mse_loss_summ')
 
         pre_optimizer = tf.train.AdamOptimizer(
             learning_rate=self.learning_rate)
@@ -97,62 +162,67 @@ class SrGan(object):
         srgan_variables = tf.get_collection(
             tf.GraphKeys.GLOBAL_VARIABLES, scope='srgan')
         optimizer = optimizer.minimize(
-            mse_loss+content_loss, name='train_op', var_list=srgan_variables)
+            mse_loss+content_loss+gen_loss, name='train_op', var_list=srgan_variables)
 
-    def train(self, preload_epoch=0, training_path="./ImageNet/TrainImages", validation_set_path="./ImageNet/TestImages", initialize=True):
+        disc_optimizer = tf.train.AdamOptimizer(
+            learning_rate=self.learning_rate)
+        disc_variables = tf.get_collection(
+            tf.GraphKeys.GLOBAL_VARIABLES, scope='discriminator')
+        disc_optimizer = disc_optimizer.minimize(
+            discriminator_loss, name='train_op_disc', var_list=disc_variables)
+        self.merged = tf.summary.merge_all()
+
+    def train(self, preload_epoch=0, training_path="./ImageNet/TrainImages", validation_set_path="./ImageNet/TestImages", initialize=True, pretrain=False):
         writer = tf.summary.FileWriter(logdir='./logs/', graph=self.sess.graph)
         if initialize:
             self.sess.run(self.init_op)
         self.load_vgg19()
         for epoch in range(1, self.epochs+1):
-            self.run_model(training_path, preload_epoch,
-                           epoch, training=True, shuffle=True)
+            self.run_model(writer, training_path, preload_epoch,
+                           epoch, training=True, shuffle=True, pretrain=pretrain)
 
             if validation_set_path is not None:
-                self.run_model(validation_set_path,
+                self.run_model(writer, validation_set_path,
                                preload_epoch, epoch, training=False)
             else:
                 print()
         writer.close()
 
-    def run_model(self, set_path, preload_epoch, epoch, training=False, shuffle=False):
+    def run_model(self, writer, set_path, preload_epoch, epoch, training=False, shuffle=False, pretrain=False):
         if not training:
             print('VALIDATION')
         image_loader = ImageLoader(
-            batch_size=2, image_dir=set_path)
+            batch_size=1, image_dir=set_path)
         if shuffle:
             image_loader.shuffle_data()
         batch_gen = image_loader.getImages()
-        avg_loss = 0.0
-        avg_content_loss = 0.0
         for i, (batch_x, batch_y) in enumerate(batch_gen):
-            subbatch = 1000
+            subbatch = 100
             if(i % subbatch == 0):
-                print('batch ' + str(i)+'/' +
-                      str(image_loader.batch_count))
-                print('Epoch %02d  Avg. Loss: mse-%7.10f , con-%7.10f , total-%7.10f' %
-                      (preload_epoch+epoch, avg_loss/subbatch, avg_content_loss/subbatch, avg_loss/subbatch+avg_content_loss/subbatch))
-                avg_loss = 0.0
-                avg_content_loss = 0.0
+                print('batch ' + str(i)+'/'+str(image_loader.batch_count))
                 if(training):
                     self.save(epoch=preload_epoch+epoch)
             feed = {'tf_x:0': batch_x,
                     'tf_y:0': batch_y, 'tf_training:0': training}
             if(not training):
-                loss, content_loss = self.sess.run(
-                    ['mse_loss:0', 'content_loss:0'], feed_dict=feed)
+                loss = self.sess.run(
+                    self.merged, feed_dict=feed)
             else:
-                loss, _, content_loss = self.sess.run(
-                    ['mse_loss:0', 'train_op', 'content_loss:0'], feed_dict=feed)
+                if(not pretrain):
+                    loss, _ = self.sess.run(
+                        [self.merged, 'train_op_disc'], feed_dict=feed)
+                    writer.add_summary(loss, i)
+                    loss, _ = self.sess.run(
+                        [self.merged, 'train_op'], feed_dict=feed)
+                    writer.add_summary(loss, i)
+                else:
+                    loss, _ = self.sess.run(
+                        [self.merged, 'train_mse_op'], feed_dict=feed)
+                    writer.add_summary(loss, i)
                 # print('Loss: mse-%7.10f , con-%7.10f' %
                 #       (loss, content_loss))
-            avg_loss += loss
-            avg_content_loss += content_loss
 
-        print('Epoch %02d  Avg. Loss: mse-%7.10f , con-%7.10f , total-%7.10f' %
-                      (preload_epoch+epoch, avg_loss/subbatch, avg_content_loss/subbatch, avg_loss/subbatch+avg_content_loss/subbatch))
-
-    def save(self, epoch, path='./mse-vgg-model/'):
+    def save(self, epoch, path='./mse-vgg-gen-model/'):
         if not os.path.isdir(path):
             os.makedirs(path)
         print('Saving model in %s' % path)
