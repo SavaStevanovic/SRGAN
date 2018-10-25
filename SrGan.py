@@ -10,7 +10,7 @@ import vgg19
 
 
 class SrGan(object):
-    def __init__(self, epochs, learning_rate=0.00001, channels=3, resize=2, alpha=0.2, block_count=16):
+    def __init__(self, epochs, learning_rate=0.000001, channels=3, resize=2, alpha=0.2, block_count=16):
         self.learning_rate = learning_rate
         self.channels = channels
         self.resize = resize
@@ -31,48 +31,61 @@ class SrGan(object):
     def build_discriminator(self, tf_image, tf_training, reuse):
         with tf.variable_scope("discriminator", reuse=reuse) as dis:
             print('Building descriminator')
-            net = tf.layers.conv2d(inputs=tf_image, filters=64, kernel_size=(
-                3, 3), activation=tf.nn.leaky_relu, padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
 
-            net = tf.layers.conv2d(
-                inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
-            net = tf.layers.batch_normalization(net, training=tf_training)
-            net = tf.nn.leaky_relu(net)
+            with tf.variable_scope("discriminator_64_1"):
+                net = tf.layers.conv2d(inputs=tf_image, filters=64, kernel_size=(
+                    3, 3), activation=tf.nn.leaky_relu, padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
 
-            net = tf.layers.conv2d(
-                inputs=net, filters=128, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-            net = tf.layers.batch_normalization(net, training=tf_training)
-            net = tf.nn.leaky_relu(net)
+            with tf.variable_scope("discriminator_64_2"):
+                net = tf.layers.conv2d(
+                    inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+                net = tf.layers.batch_normalization(net, training=tf_training)
+                net = tf.nn.leaky_relu(net)
 
-            net = tf.layers.conv2d(
-                inputs=net, filters=128, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
-            net = tf.layers.batch_normalization(net, training=tf_training)
-            net = tf.nn.leaky_relu(net)
+            with tf.variable_scope("discriminator_128_1"):
+                net = tf.layers.conv2d(
+                    inputs=net, filters=128, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+                net = tf.layers.batch_normalization(net, training=tf_training)
+                net = tf.nn.leaky_relu(net)
 
-            net = tf.layers.conv2d(
-                inputs=net, filters=256, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-            net = tf.layers.batch_normalization(net, training=tf_training)
-            net = tf.nn.leaky_relu(net)
+            with tf.variable_scope("discriminator_128_2"):
+                net = tf.layers.conv2d(
+                    inputs=net, filters=128, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+                net = tf.layers.batch_normalization(net, training=tf_training)
+                net = tf.nn.leaky_relu(net)
 
-            net = tf.layers.conv2d(
-                inputs=net, filters=256, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
-            net = tf.layers.batch_normalization(net, training=tf_training)
-            net = tf.nn.leaky_relu(net)
+            with tf.variable_scope("discriminator_256_1"):
+                net = tf.layers.conv2d(
+                    inputs=net, filters=256, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+                net = tf.layers.batch_normalization(net, training=tf_training)
+                net = tf.nn.leaky_relu(net)
 
-            net = tf.layers.conv2d(
-                inputs=net, filters=512, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-            net = tf.layers.batch_normalization(net, training=tf_training)
-            net = tf.nn.leaky_relu(net)
+            with tf.variable_scope("discriminator_256_2"):
+                net = tf.layers.conv2d(
+                    inputs=net, filters=256, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+                net = tf.layers.batch_normalization(net, training=tf_training)
+                net = tf.nn.leaky_relu(net)
 
-            net = tf.layers.conv2d(
-                inputs=net, filters=512, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
-            net = tf.layers.batch_normalization(net, training=tf_training)
-            net = tf.nn.leaky_relu(net)
+            with tf.variable_scope("discriminator_512_1"):
+                net = tf.layers.conv2d(
+                    inputs=net, filters=512, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+                net = tf.layers.batch_normalization(net, training=tf_training)
+                net = tf.nn.leaky_relu(net)
 
-            net = tf.reshape(net, shape=[-1, 512*6*6])
-            net = tf.layers.dense(inputs=net, units=1024,
-                                  activation=tf.nn.leaky_relu)
-            net = tf.layers.dense(inputs=net, units=1)
+            with tf.variable_scope("discriminator_512_2"):
+                net = tf.layers.conv2d(
+                    inputs=net, filters=512, kernel_size=(3, 3), padding='SAME', strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer())
+                net = tf.layers.batch_normalization(net, training=tf_training)
+                net = tf.nn.leaky_relu(net)
+
+            with tf.variable_scope("flatten"):
+                net = tf.reshape(net, shape=[-1, 512*6*6])
+
+            with tf.variable_scope("dense_1"):
+                net = tf.layers.dense(inputs=net, units=1024,
+                                    activation=tf.nn.leaky_relu)
+            with tf.variable_scope("dense_2"):
+                net = tf.layers.dense(inputs=net, units=1)
             return net
 
     def build_generator(self):
@@ -90,16 +103,18 @@ class SrGan(object):
             post_res = net_pre
 
             print('\nBuilding block layers:')
-            for i in range(self.block_count):
-                net = tf.layers.conv2d(
-                    inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-                net = tf.layers.batch_normalization(net, training=tf_training)
-                net = tf.nn.leaky_relu(net)
-                net = tf.layers.conv2d(
-                    inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-                net = tf.layers.batch_normalization(net, training=tf_training)
-                net += net_pre
-                net_pre = net
+            with tf.variable_scope("residual_blocks"):
+                for i in range(self.block_count):
+                    with tf.variable_scope("residual_block_"+str(i)):
+                        net = tf.layers.conv2d(
+                            inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+                        net = tf.layers.batch_normalization(net, training=tf_training)
+                        net = tf.nn.leaky_relu(net)
+                        net = tf.layers.conv2d(
+                            inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+                        net = tf.layers.batch_normalization(net, training=tf_training)
+                        net += net_pre
+                        net_pre = net
 
             print('\nBuilding pre upscale layer:')
             net = tf.layers.conv2d(inputs=net, filters=64,
@@ -109,10 +124,11 @@ class SrGan(object):
 
             print('\nBuilding upscale layers:')
             for i in range(self.resize):
-                net = tf.layers.conv2d(inputs=net, filters=256, kernel_size=(
-                    3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-                net = tf.depth_to_space(net, block_size=2)
-                net = tf.nn.leaky_relu(net)
+                with tf.variable_scope("upscale_layer_"+str(i)):
+                    net = tf.layers.conv2d(inputs=net, filters=256, kernel_size=(
+                        3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+                    net = tf.depth_to_space(net, block_size=2)
+                    net = tf.nn.leaky_relu(net)
 
             output = tf.layers.conv2d(
                 inputs=net, filters=3, kernel_size=(9, 9), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer(), activation=tf.nn.tanh)
@@ -151,19 +167,21 @@ class SrGan(object):
 
         mse_loss = tl.cost.mean_squared_error(
             tf_y_image, output, is_mean=True)
-        mse_loss_summ = tf.summary.scalar(
+        self.mse_loss_summ = tf.summary.scalar(
             tensor=mse_loss, name='mse_loss_summ')
+        total_loss_summ = tf.summary.scalar(
+            tensor=mse_loss+content_loss+gen_loss, name='total_loss_summ')
 
-        pre_optimizer = tf.train.AdamOptimizer(
-            learning_rate=self.learning_rate)
-        pre_optimizer = pre_optimizer.minimize(mse_loss, name='train_mse_op')
-
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         srgan_variables = tf.get_collection(
             tf.GraphKeys.GLOBAL_VARIABLES, scope='srgan')
+        pre_optimizer = tf.train.AdamOptimizer(
+            learning_rate=self.learning_rate)
+        pre_optimizer = pre_optimizer.minimize(mse_loss, name='train_mse_op', var_list=srgan_variables)
+
+        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         optimizer = optimizer.minimize(
             mse_loss+content_loss+gen_loss, name='train_op', var_list=srgan_variables)
-
+        
         disc_optimizer = tf.train.AdamOptimizer(
             learning_rate=self.learning_rate)
         disc_variables = tf.get_collection(
@@ -192,7 +210,7 @@ class SrGan(object):
         if not training:
             print('VALIDATION')
         image_loader = ImageLoader(
-            batch_size=1, image_dir=set_path)
+            batch_size=8, image_dir=set_path)
         if shuffle:
             image_loader.shuffle_data()
         batch_gen = image_loader.getImages()
@@ -211,14 +229,14 @@ class SrGan(object):
                 if(not pretrain):
                     loss, _ = self.sess.run(
                         [self.merged, 'train_op_disc'], feed_dict=feed)
-                    writer.add_summary(loss, i)
+                    writer.add_summary(loss)
                     loss, _ = self.sess.run(
                         [self.merged, 'train_op'], feed_dict=feed)
-                    writer.add_summary(loss, i)
+                    writer.add_summary(loss)
                 else:
                     loss, _ = self.sess.run(
-                        [self.merged, 'train_mse_op'], feed_dict=feed)
-                    writer.add_summary(loss, i)
+                        [self.mse_loss_summ, 'train_mse_op'], feed_dict=feed)
+                    writer.add_summary(loss)
                 # print('Loss: mse-%7.10f , con-%7.10f' %
                 #       (loss, content_loss))
 
