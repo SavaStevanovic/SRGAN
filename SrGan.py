@@ -10,7 +10,7 @@ import vgg19
 
 
 class SrGan(object):
-    def __init__(self, epochs, learning_rate=0.000001, channels=3, resize=2, alpha=0.2, block_count=16):
+    def __init__(self, epochs, learning_rate=0.00001, channels=3, resize=2, alpha=0.2, block_count=16):
         self.learning_rate = learning_rate
         self.channels = channels
         self.resize = resize
@@ -149,24 +149,24 @@ class SrGan(object):
         discriminator_logits_real = self.build_discriminator(
             tf_y_image, tf_training, reuse=True)
 
-        discriminator_loss = tl.cost.sigmoid_cross_entropy(discriminator_logits_gen, tf.zeros_like(
-            discriminator_logits_gen)) + tl.cost.sigmoid_cross_entropy(discriminator_logits_real, tf.ones_like(discriminator_logits_real))
+        discriminator_loss = tf.losses.sigmoid_cross_entropy(discriminator_logits_gen, tf.zeros_like(
+            discriminator_logits_gen)) + tf.losses.sigmoid_cross_entropy(discriminator_logits_real, tf.ones_like(discriminator_logits_real))
         discriminator_loss_summ = tf.summary.scalar(
             tensor=discriminator_loss, name='discriminator_loss_summ')
 
         gen_loss = 0.001 * \
-            tl.cost.sigmoid_cross_entropy(
+            tf.losses.sigmoid_cross_entropy(
                 discriminator_logits_gen, tf.ones_like(discriminator_logits_gen))
         gen_loss_summ = tf.summary.scalar(
             tensor=gen_loss, name='gen_loss_summ')
 
-        content_loss = 0.006*tl.cost.mean_squared_error(
-            target_content.outputs, output_content.outputs, is_mean=True)
+        content_loss = 0.006*tf.losses.mean_squared_error(
+            target_content.outputs, output_content.outputs)
         content_loss_summ = tf.summary.scalar(
             tensor=content_loss, name='content_loss_summ')
 
-        mse_loss = tl.cost.mean_squared_error(
-            tf_y_image, output, is_mean=True)
+        mse_loss = tf.losses.mean_squared_error(
+            tf_y_image, output)
         self.mse_loss_summ = tf.summary.scalar(
             tensor=mse_loss, name='mse_loss_summ')
         total_loss_summ = tf.summary.scalar(

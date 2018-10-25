@@ -9,9 +9,9 @@ from ImageLoader import ImageLoader
 import os
 import math
 
-preload_epoch = 9
+preload_epoch = 3
 epoch = 1000
-train = False
+train = True
 preload_model = True
 pretrain=True
 
