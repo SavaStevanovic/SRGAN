@@ -21,7 +21,7 @@ class SrGan(object):
         graph = tf.Graph()
         with graph.as_default():
             tf.set_random_seed(1)
-            self.build_generator()
+            self.build()
             self.init_op = tf.global_variables_initializer()
 
             self.saver = tf.train.Saver()
@@ -83,18 +83,12 @@ class SrGan(object):
 
             with tf.variable_scope("dense_1"):
                 net = tf.layers.dense(inputs=net, units=1024,
-                                    activation=tf.nn.leaky_relu)
+                                      activation=tf.nn.leaky_relu)
             with tf.variable_scope("dense_2"):
                 net = tf.layers.dense(inputs=net, units=1)
             return net
 
-    def build_generator(self):
-        tf_x_image = tf.placeholder(
-            dtype=tf.float32, shape=[None, None, None, self.channels], name='tf_x')
-        tf_y_image = tf.placeholder(
-            dtype=tf.float32, shape=[None, None, None, self.channels], name='tf_y')
-        tf_training = tf.placeholder(
-            dtype=tf.bool, shape=None, name='tf_training')
+    def build_generator(self, tf_x_image, tf_training):
         with tf.variable_scope("srgan") as vs:
             print('\nBuilding first layer:')
             net = tf.layers.conv2d(inputs=tf_x_image, filters=64, kernel_size=(
@@ -108,11 +102,13 @@ class SrGan(object):
                     with tf.variable_scope("residual_block_"+str(i)):
                         net = tf.layers.conv2d(
                             inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-                        net = tf.layers.batch_normalization(net, training=tf_training)
+                        net = tf.layers.batch_normalization(
+                            net, training=tf_training)
                         net = tf.nn.leaky_relu(net)
                         net = tf.layers.conv2d(
                             inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-                        net = tf.layers.batch_normalization(net, training=tf_training)
+                        net = tf.layers.batch_normalization(
+                            net, training=tf_training)
                         net += net_pre
                         net_pre = net
 
@@ -133,6 +129,16 @@ class SrGan(object):
             output = tf.layers.conv2d(
                 inputs=net, filters=3, kernel_size=(9, 9), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer(), activation=tf.nn.tanh)
             output = tf.identity(output, name='output_image')
+        return output
+
+    def build(self):
+        tf_x_image = tf.placeholder(
+            dtype=tf.float32, shape=[None, None, None, self.channels], name='tf_x')
+        tf_y_image = tf.placeholder(
+            dtype=tf.float32, shape=[None, None, None, self.channels], name='tf_y')
+        tf_training = tf.placeholder(
+            dtype=tf.bool, shape=None, name='tf_training')
+        output = self.build_generator(tf_x_image, tf_training)
 
         output224 = tf.image.resize_images(
             output, size=[224, 224], method=0, align_corners=False)
@@ -149,17 +155,15 @@ class SrGan(object):
         discriminator_logits_real = self.build_discriminator(
             tf_y_image, tf_training, reuse=True)
 
-        discriminator_loss = tf.losses.sigmoid_cross_entropy(discriminator_logits_gen, tf.zeros_like(
-            discriminator_logits_gen)) + tf.losses.sigmoid_cross_entropy(discriminator_logits_real, tf.ones_like(discriminator_logits_real))
+        discriminator_loss = tf.losses.sigmoid_cross_entropy(tf.zeros_like(
+            discriminator_logits_gen), discriminator_logits_gen) + tf.losses.sigmoid_cross_entropy(tf.ones_like(discriminator_logits_real), discriminator_logits_real)
         discriminator_loss_summ = tf.summary.scalar(
             tensor=discriminator_loss, name='discriminator_loss_summ')
 
-        gen_loss = 0.001 * \
-            tf.losses.sigmoid_cross_entropy(
-                discriminator_logits_gen, tf.ones_like(discriminator_logits_gen))
+        gen_loss = 0.001 * tf.losses.sigmoid_cross_entropy(tf.ones_like(discriminator_logits_gen),
+                                                           discriminator_logits_gen)
         gen_loss_summ = tf.summary.scalar(
             tensor=gen_loss, name='gen_loss_summ')
-
         content_loss = 0.006*tf.losses.mean_squared_error(
             target_content.outputs, output_content.outputs)
         content_loss_summ = tf.summary.scalar(
@@ -172,16 +176,20 @@ class SrGan(object):
         total_loss_summ = tf.summary.scalar(
             tensor=mse_loss+content_loss+gen_loss, name='total_loss_summ')
 
+        tf.summary.image(tensor=output, max_outputs=3, name='genearated')
+        tf.summary.image(tensor=tf_y_image, max_outputs=3, name='original')
+
         srgan_variables = tf.get_collection(
             tf.GraphKeys.GLOBAL_VARIABLES, scope='srgan')
         pre_optimizer = tf.train.AdamOptimizer(
             learning_rate=self.learning_rate)
-        pre_optimizer = pre_optimizer.minimize(mse_loss, name='train_mse_op', var_list=srgan_variables)
+        pre_optimizer = pre_optimizer.minimize(
+            mse_loss, name='train_mse_op', var_list=srgan_variables)
 
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         optimizer = optimizer.minimize(
             mse_loss+content_loss+gen_loss, name='train_op', var_list=srgan_variables)
-        
+
         disc_optimizer = tf.train.AdamOptimizer(
             learning_rate=self.learning_rate)
         disc_variables = tf.get_collection(
@@ -199,46 +207,46 @@ class SrGan(object):
             self.run_model(writer, training_path, preload_epoch,
                            epoch, training=True, shuffle=True, pretrain=pretrain)
 
-            if validation_set_path is not None:
-                self.run_model(writer, validation_set_path,
-                               preload_epoch, epoch, training=False)
-            else:
-                print()
+            # if validation_set_path is not None:
+            #     self.run_model(writer, validation_set_path,
+            #                    preload_epoch, epoch, training=False)
+            # else:
+            #     print()
         writer.close()
 
     def run_model(self, writer, set_path, preload_epoch, epoch, training=False, shuffle=False, pretrain=False):
         if not training:
             print('VALIDATION')
         image_loader = ImageLoader(
-            batch_size=8, image_dir=set_path)
+            batch_size=1, image_dir=set_path)
         if shuffle:
             image_loader.shuffle_data()
         batch_gen = image_loader.getImages()
         for i, (batch_x, batch_y) in enumerate(batch_gen):
             subbatch = 100
-            if(i % subbatch == 0):
-                print('batch ' + str(i)+'/'+str(image_loader.batch_count))
-                if(training):
-                    self.save(epoch=preload_epoch+epoch)
             feed = {'tf_x:0': batch_x,
                     'tf_y:0': batch_y, 'tf_training:0': training}
-            if(not training):
+            if(i % subbatch == 0):
+                print('batch ' + str(i)+'/'+str(image_loader.batch_count))
                 loss = self.sess.run(
                     self.merged, feed_dict=feed)
+                writer.add_summary(loss)
+                if(training and i % 1000 == 0):
+                    self.save(epoch=preload_epoch+epoch)
+
+            if(not pretrain):
+                _ = self.sess.run(
+                    'train_op_disc', feed_dict=feed)
+
+                _ = self.sess.run(
+                    'train_op', feed_dict=feed)
             else:
-                if(not pretrain):
-                    loss, _ = self.sess.run(
-                        [self.merged, 'train_op_disc'], feed_dict=feed)
-                    writer.add_summary(loss)
-                    loss, _ = self.sess.run(
-                        [self.merged, 'train_op'], feed_dict=feed)
-                    writer.add_summary(loss)
-                else:
-                    loss, _ = self.sess.run(
-                        [self.mse_loss_summ, 'train_mse_op'], feed_dict=feed)
-                    writer.add_summary(loss)
-                # print('Loss: mse-%7.10f , con-%7.10f' %
-                #       (loss, content_loss))
+                loss, _ = self.sess.run(
+                    [self.mse_loss_summ, 'train_mse_op'], feed_dict=feed)
+                writer.add_summary(loss)
+
+            # print('Loss: mse-%7.10f , con-%7.10f' %
+            #       (loss, content_loss))
 
     def save(self, epoch, path='./mse-vgg-gen-model/'):
         if not os.path.isdir(path):

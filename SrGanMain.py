@@ -9,11 +9,11 @@ from ImageLoader import ImageLoader
 import os
 import math
 
-preload_epoch = 3
+preload_epoch = 9
 epoch = 1000
-train = True
+train = False
 preload_model = True
-pretrain=True
+pretrain=False
 
 def psnr(img1, img2):
     mse = np.mean((img1 - img2) ** 2)
