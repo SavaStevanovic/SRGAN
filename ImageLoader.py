@@ -8,7 +8,7 @@ from sklearn.feature_extraction import image
 
 
 class ImageLoader:
-    def __init__(self, batch_size, image_dir="./ImageNet/TrainImages"):
+    def __init__(self, batch_size, image_dir="./ImageNet/TrainImages", shrink=True):
         self.batch_size = batch_size
         # specify your path here
         self.imageDir = image_dir
@@ -21,7 +21,8 @@ class ImageLoader:
             if extension.lower() not in self.valid_image_extensions:
                 continue
             self.image_path_list.append(os.path.join(self.imageDir, file))
-        self.batch_count=len(self.image_path_list)//self.batch_size-1
+        self.batch_count=len(self.image_path_list)//self.batch_size
+        self.shrink=shrink
 
     def shuffle_data(self):
         random.shuffle(self.image_path_list)
@@ -35,12 +36,12 @@ class ImageLoader:
                 yield prepreocessed_images
 
     def preprocess_images(self, images):
-        patch_images = [image.extract_patches_2d(image=img, patch_size=(
-            96, 96), max_patches=16) for img in images if img is not None]
-
-        target_images = [item for sublist in patch_images for item in sublist]
+        if self.shrink:
+            images = [image.extract_patches_2d(image=img, patch_size=(
+                96, 96), max_patches=16) for img in images if img is not None]
+            images = [item for sublist in images for item in sublist]
         input_images = [cv2.resize(
-            img, dsize=(24, 24), interpolation=cv2.INTER_CUBIC) for img in target_images]
-        target_images = [img/127.5-1 for img in target_images]
+            img, dsize=(img.shape[1]//4,img.shape[0]//4), interpolation=cv2.INTER_AREA) for img in images]
+        images = [img/127.5-1 for img in images]
         input_images = [img/255 for img in input_images]
-        return input_images, target_images
+        return input_images, images

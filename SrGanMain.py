@@ -9,11 +9,12 @@ from ImageLoader import ImageLoader
 import os
 import math
 
-preload_epoch = 9
+preload_epoch = 8
 epoch = 1000
-train = False
+train = True
 preload_model = True
 pretrain=False
+demo=True
 
 def psnr(img1, img2):
     mse = np.mean((img1 - img2) ** 2)
@@ -37,20 +38,23 @@ if train:
 if not train:
     srgan = SrGan(epochs=epoch)
     srgan.load(epoch=preload_epoch, path='./mse-vgg-gen-model/')
-
-    il = ImageLoader(
-        batch_size=10, image_dir="./ImageNet/TestImages")
-    for i, (input_images, target_images) in enumerate(il.getImages(), 1):
+    if not demo:
+        il = ImageLoader(
+            batch_size=10, image_dir="./ImageNet/TestImages")
+    else:
+        il = ImageLoader(
+            batch_size=1, image_dir="./ImageNet/DemoImages", shrink=False)
+    for i, (input_images, target_images) in enumerate(il.getImages()):
         preds = srgan.predict(input_images)
         for i, img in enumerate(preds):
             pictures = [
-                cv2.resize(input_images[i], dsize=(96, 96),
+                cv2.resize(input_images[i], dsize=(input_images[i].shape[1]*4, input_images[i].shape[0]*4),
                            interpolation=cv2.INTER_NEAREST),
-                cv2.resize(input_images[i], dsize=(96, 96),
+                cv2.resize(input_images[i], dsize=(input_images[i].shape[1]*4, input_images[i].shape[0]*4),
                            interpolation=cv2.INTER_CUBIC),
                 (img+1)/2, (target_images[i]+1)/2, ((img+1)/2 - (target_images[i]+1)/2)**2]
 
-            pictures = (cv2.resize(img, dsize=(96*5, 96*5),
+            pictures = (cv2.resize(img, dsize=(img.shape[1], img.shape[0]),
                                    interpolation=cv2.INTER_NEAREST) for img in pictures)
 
             numpy_horizontal = np.hstack(pictures)

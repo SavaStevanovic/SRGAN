@@ -26,7 +26,9 @@ class SrGan(object):
 
             self.saver = tf.train.Saver()
 
-        self.sess = tf.Session(graph=graph)
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        self.sess = tf.Session(graph=graph, config=config)
 
     def build_discriminator(self, tf_image, tf_training, reuse):
         with tf.variable_scope("discriminator", reuse=reuse) as dis:
@@ -218,7 +220,7 @@ class SrGan(object):
         if not training:
             print('VALIDATION')
         image_loader = ImageLoader(
-            batch_size=1, image_dir=set_path)
+            batch_size=2, image_dir=set_path)
         if shuffle:
             image_loader.shuffle_data()
         batch_gen = image_loader.getImages()
