@@ -122,3 +122,6 @@ mse-vgg-gen-model/model.ckpt-11.data-00000-of-00001
 mse-vgg-gen-model/model.ckpt-8.data-00000-of-00001
 mse-vgg-gen-model/model.ckpt-11.meta
 vgg19.npy
+*.index
+*.data-00000-of-00001
+*.meta

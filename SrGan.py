@@ -139,7 +139,7 @@ class SrGan(object):
         tf_y_image = tf.placeholder(
             dtype=tf.float32, shape=[None, None, None, self.channels], name='tf_y')
         tf_training = tf.placeholder(
-            dtype=tf.bool, shape=None, name='tf_training')
+            dtype=tf.bool, name='tf_training')
         output = self.build_generator(tf_x_image, tf_training)
 
         output224 = tf.image.resize_images(
@@ -183,21 +183,32 @@ class SrGan(object):
 
         srgan_variables = tf.get_collection(
             tf.GraphKeys.GLOBAL_VARIABLES, scope='srgan')
-        pre_optimizer = tf.train.AdamOptimizer(
-            learning_rate=self.learning_rate)
-        pre_optimizer = pre_optimizer.minimize(
-            mse_loss, name='train_mse_op', var_list=srgan_variables)
 
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        optimizer = optimizer.minimize(
-            mse_loss+content_loss+gen_loss, name='train_op', var_list=srgan_variables)
+        srgan_update_ops = tf.get_collection(
+            tf.GraphKeys.UPDATE_OPS, scope='srgan')
+        discriminator_update_ops = tf.get_collection(
+            tf.GraphKeys.UPDATE_OPS, scope='discriminator')
 
-        disc_optimizer = tf.train.AdamOptimizer(
-            learning_rate=self.learning_rate)
-        disc_variables = tf.get_collection(
-            tf.GraphKeys.GLOBAL_VARIABLES, scope='discriminator')
-        disc_optimizer = disc_optimizer.minimize(
-            discriminator_loss, name='train_op_disc', var_list=disc_variables)
+        with tf.control_dependencies(srgan_update_ops):
+            pre_optimizer = tf.train.AdamOptimizer(
+                learning_rate=self.learning_rate)
+            pre_optimizer = pre_optimizer.minimize(
+                mse_loss, name='train_mse_op', var_list=srgan_variables)
+
+        with tf.control_dependencies(srgan_update_ops):
+            optimizer = tf.train.AdamOptimizer(
+                learning_rate=self.learning_rate)
+            optimizer = optimizer.minimize(
+                mse_loss+content_loss+gen_loss, name='train_op', var_list=srgan_variables)
+
+        with tf.control_dependencies(discriminator_update_ops):
+            disc_optimizer = tf.train.AdamOptimizer(
+                learning_rate=self.learning_rate)
+            disc_variables = tf.get_collection(
+                tf.GraphKeys.GLOBAL_VARIABLES, scope='discriminator')
+            disc_optimizer = disc_optimizer.minimize(
+                discriminator_loss, name='train_op_disc', var_list=disc_variables)
+
         self.merged = tf.summary.merge_all()
 
     def train(self, preload_epoch=0, training_path="./ImageNet/TrainImages", validation_set_path="./ImageNet/TestImages", initialize=True, pretrain=False):
@@ -247,9 +258,6 @@ class SrGan(object):
                     [self.mse_loss_summ, 'train_mse_op'], feed_dict=feed)
                 writer.add_summary(loss)
 
-            # print('Loss: mse-%7.10f , con-%7.10f' %
-            #       (loss, content_loss))
-
     def save(self, epoch, path='./mse-vgg-gen-model/'):
         if not os.path.isdir(path):
             os.makedirs(path)
@@ -263,7 +271,7 @@ class SrGan(object):
             path, 'model.ckpt-%d' % epoch))
 
     def predict(self,  X_test):
-        feed = {'tf_x:0': X_test, 'tf_training:0': True}
+        feed = {'tf_x:0': X_test, 'tf_training:0': False}
         return self.sess.run('srgan/output_image:0', feed_dict=feed)
 
     def load_vgg19(self):
