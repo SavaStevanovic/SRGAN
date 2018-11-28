@@ -4,6 +4,7 @@ import os.path
 from operator import itemgetter
 import random
 from sklearn.feature_extraction import image
+import numpy as np
 # print (cv2.__version__)
 
 
@@ -31,15 +32,16 @@ class ImageLoader:
         for i in range(self.batch_count):
             images = [cv2.imread(
                 imagePath) for imagePath in self.image_path_list[i*self.batch_size:(i+1)*self.batch_size]]
-            prepreocessed_images=self.preprocess_images(images)
+            prepreocessed_images=self.preprocess_images([img for img in images if img.shape[0]>128 and img.shape[1]>128])
             if len(prepreocessed_images[0])>0 and len(prepreocessed_images[1])>0:
                 yield prepreocessed_images
 
     def preprocess_images(self, images):
         if self.shrink:
             images = [image.extract_patches_2d(image=img, patch_size=(
-                96, 96), max_patches=16) for img in images if img is not None]
-            images = [item for sublist in images for item in sublist]
+                128, 128), max_patches=16) for img in images if img is not None]
+            images = [cv2.flip(img, 1) if random.randint(0, 1) == 0 else img for image in images for img in image]
+            images = [np.rot90(img, random.randint(0, 3)) for img in images]
         input_images = [cv2.resize(
             img, dsize=(img.shape[1]//4,img.shape[0]//4), interpolation=cv2.INTER_AREA) for img in images]
         images = [img/127.5-1 for img in images]
