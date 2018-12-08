@@ -10,7 +10,7 @@ import vgg19
 
 
 class SrGan(object):
-    def __init__(self, epochs, learning_rate=0.000002, channels=3, resize=2, alpha=0.2, block_count=30):
+    def __init__(self, epochs, learning_rate=0.000005, channels=3, resize=2, alpha=0.2, block_count=23):
         self.learning_rate = learning_rate
         self.channels = channels
         self.resize = resize
@@ -107,14 +107,7 @@ class SrGan(object):
             print('\nBuilding block layers:')
             with tf.variable_scope("residual_blocks"):
                 for i in range(self.block_count):
-                    with tf.variable_scope("residual_block_"+str(i)):
-                        net = tf.layers.conv2d(
-                            inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-                        net = tf.nn.leaky_relu(net)
-                        net = tf.layers.conv2d(
-                            inputs=net, filters=64, kernel_size=(3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
-                        net += net_pre
-                        net_pre = net
+                    net = self.RRDB(i, net)
 
             print('\nBuilding pre upscale layer:')
             net = tf.layers.conv2d(inputs=net, filters=64,
@@ -170,12 +163,12 @@ class SrGan(object):
             real_logit), real_logit) + tf.losses.sigmoid_cross_entropy(tf.ones_like(fake_logit), fake_logit)
         gen_loss_summ = tf.summary.scalar(
             tensor=gen_loss, name='gen_loss_summ')
-        content_loss = 4*tf.losses.absolute_difference(
+        content_loss = 20*tf.losses.absolute_difference(
             target_content.outputs, output_content.outputs)
         content_loss_summ = tf.summary.scalar(
             tensor=content_loss, name='content_loss_summ')
 
-        mse_loss = 3000*tf.losses.absolute_difference(
+        mse_loss = 15000*tf.losses.absolute_difference(
             tf_y_image, output)
         mse_loss_summ = tf.summary.scalar(
             tensor=mse_loss, name='mse_loss_summ')
@@ -252,8 +245,8 @@ class SrGan(object):
                     self.save(epoch=preload_epoch+epoch)
 
             if(not pretrain):
-                _ = self.sess.run(
-                    'train_op_disc', feed_dict=feed)
+                # _ = self.sess.run(
+                #     'train_op_disc', feed_dict=feed)
 
                 _ = self.sess.run(
                     'train_op', feed_dict=feed)
@@ -262,7 +255,7 @@ class SrGan(object):
                     [self.merged, 'train_mse_op'], feed_dict=feed)
                 writer.add_summary(loss)
 
-    def save(self, epoch, path='./experiment/'):
+    def save(self, epoch, path='./experiment-more/'):
         if not os.path.isdir(path):
             os.makedirs(path)
         print('Saving model in %s' % path)
@@ -293,3 +286,35 @@ class SrGan(object):
             print("  Loading %s: %s, %s" % (val[0], W.shape, b.shape))
             params.extend([W, b])
         tl.files.assign_params(self.sess, params, self.vgg)
+
+    def RRDB(self, i, net):
+        net_pre = net
+        with tf.variable_scope("RRDB_"+str(i)):
+            with tf.variable_scope("dense_blocks_1_" + str(i)):
+                net = self.dense_block(i, net)
+            with tf.variable_scope("dense_blocks_2_" + str(i)):
+                net = self.dense_block(i, net)
+            with tf.variable_scope("dense_blocks_3_" + str(i)):
+                net = self.dense_block(i, net)
+
+            net = net * 0.2 + net_pre
+            return net
+
+    def dense_block(self, i, net):
+        with tf.variable_scope("dense_block_"+str(i)):
+            net1 = tf.layers.conv2d(inputs=net, filters=64, kernel_size=(
+                3, 3), padding='SAME', activation=tf.nn.leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+            net2 = tf.layers.conv2d(inputs=tf.concat([net1, net], 3), filters=64, kernel_size=(
+                3, 3), padding='SAME', activation=tf.nn.leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+            net3 = tf.layers.conv2d(inputs=tf.concat([net2, net1, net], 3), filters=64, kernel_size=(
+                3, 3), padding='SAME', activation=tf.nn.leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+            net4 = tf.layers.conv2d(inputs=tf.concat([net3, net2, net1, net], 3), filters=64, kernel_size=(
+                3, 3), padding='SAME', activation=tf.nn.leaky_relu, kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+            net5 = tf.layers.conv2d(inputs=tf.concat([net4, net3, net2, net1, net], 3), filters=64, kernel_size=(
+                3, 3), padding='SAME', kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+        return net5 * 0.2 + net
